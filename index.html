@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>qdirect</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: monospace; background: #1e1e1e; color: #d4d4d4; padding: 24px; }
+    h1 { font-size: 1.1rem; margin-bottom: 20px; color: #9cdcfe; }
+    .row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+    label { color: #9cdcfe; min-width: 40px; }
+    input[type="text"], input[type="number"] {
+      background: #2d2d2d; color: #d4d4d4; border: 1px solid #444;
+      padding: 6px 8px; font-family: monospace; font-size: 0.9rem; border-radius: 3px;
+    }
+    #host { width: 200px; }
+    #port { width: 80px; }
+    #cmd { width: 100%; }
+    button {
+      background: #0e639c; color: #fff; border: none; padding: 6px 16px;
+      font-family: monospace; font-size: 0.9rem; border-radius: 3px; cursor: pointer;
+    }
+    button:hover { background: #1177bb; }
+    button:disabled { background: #444; cursor: default; }
+    #status { font-size: 0.8rem; color: #888; margin-left: 8px; }
+    #status.ok { color: #4ec94e; }
+    #status.err { color: #f44747; }
+    textarea {
+      width: 100%; height: 400px; background: #2d2d2d; color: #d4d4d4;
+      border: 1px solid #444; padding: 8px; font-family: monospace; font-size: 0.85rem;
+      border-radius: 3px; resize: vertical; margin-top: 4px;
+    }
+    .cmd-row { margin-bottom: 12px; }
+    .cmd-row .row { margin-bottom: 0; }
+  </style>
+</head>
+<body>
+  <h1>qdirect</h1>
+
+  <div class="row">
+    <label>host</label>
+    <input id="host" type="text" value="localhost" />
+    <label>port</label>
+    <input id="port" type="number" value="8000" />
+    <button id="btn-connect">connect</button>
+    <span id="status">disconnected</span>
+  </div>
+
+  <div class="cmd-row">
+    <div class="row">
+      <label>cmd</label>
+      <input id="cmd" type="text" placeholder="e.g. .Q.w[]" />
+      <button id="btn-run" disabled>run</button>
+    </div>
+  </div>
+
+  <label>result</label>
+  <textarea id="result" readonly></textarea>
+
+  <script>
+    var ws = null;
+    var statusEl = document.getElementById('status');
+    var btnConnect = document.getElementById('btn-connect');
+    var btnRun = document.getElementById('btn-run');
+    var resultEl = document.getElementById('result');
+
+    function setStatus(msg, cls) {
+      statusEl.textContent = msg;
+      statusEl.className = cls || '';
+    }
+
+    function fmt(val) {
+      if (typeof val === 'string') return val;
+      return JSON.stringify(val, null, 2);
+    }
+
+    btnConnect.addEventListener('click', function() {
+      if (ws) {
+        ws.close();
+        return;
+      }
+      var host = document.getElementById('host').value.trim();
+      var port = document.getElementById('port').value.trim();
+      var url = 'ws://' + host + ':' + port;
+      setStatus('connecting…');
+      ws = new WebSocket(url);
+      ws.onopen = function() {
+        setStatus('connected', 'ok');
+        btnConnect.textContent = 'disconnect';
+        btnRun.disabled = false;
+      };
+
+      ws.onclose = function() {
+        ws = null;
+        setStatus('disconnected', '');
+        btnConnect.textContent = 'connect';
+        btnRun.disabled = true;
+      };
+
+      ws.onerror = function() {
+        setStatus('error', 'err');
+      };
+
+      ws.onmessage = function(e) {
+        try {
+          var val = JSON.parse(e.data);
+          resultEl.value = fmt(val);
+        } catch(ex) {
+          resultEl.value = e.data;
+        }
+      };
+    });
+
+    btnRun.addEventListener('click', function() {
+      var cmd = document.getElementById('cmd').value;
+      if (!cmd || !ws) return;
+      ws.send(JSON.stringify({cmd: cmd}));
+      resultEl.value = '';
+    });
+
+    document.getElementById('cmd').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !btnRun.disabled) btnRun.click();
+    });
+  </script>
+</body>
+</html>
