@@ -191,3 +191,5 @@ function serialize(x){var a=1,pos=0,ub,bb=new Uint8Array(8),ib=new Int32Array(bb
   ub=new Uint8Array(ab);
   wb(1);wb(0);wb(0);wb(0);ib[0]=ub.length;wn(4);w(x,null);
   return ab;}
+
+export { serialize, deserialize }
